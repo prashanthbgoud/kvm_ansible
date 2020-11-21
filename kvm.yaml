@@ -1,0 +1,4 @@
+- hosts: kvm_host
+  become: true
+  roles:
+    - kvm_install

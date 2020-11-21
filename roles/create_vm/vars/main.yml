@@ -1,0 +1,4 @@
+---
+download_dir: /opt/centos7
+remote_image_name: CentOS-7-x86_64-GenericCloud.qcow2
+password_hash: ""

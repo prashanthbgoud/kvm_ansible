@@ -1,0 +1,26 @@
+---
+- name: check if the virtualization is enabled
+  command: lscpu | grep Virtualization
+  register: virtualization_status
+
+- name: fail when virtualization is not enabled.
+  fail:
+    msg: host does not have the virtualization enabled.
+  when: '"VT-x" not in virtualization_status'
+
+- name: install required packages
+  yum:
+    name: "{{ item }}"
+    state: latest
+  with_items:
+    - qemu-kvm
+    - libvirt
+    - libvirt-python
+    - libguestfs-tools
+    - virt-install
+
+- name: enable kvm service
+  service:
+    name: libvirtd
+    state: started
+    enabled: yes

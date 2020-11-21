@@ -1,0 +1,75 @@
+
+- name: create download dir
+  file:
+    path: "{{ download_dir }}"
+    state: directory
+    mode: '0755'
+
+- name: download sha256 for centos7
+  get_url:
+    uri: "https://cloud.centos.org/centos/7/images/{{ item }}"
+    dest: "{{ download_dir }}/{{ item }}"
+  with_items:
+    - sha256sum.txt.asc
+    - sha256sum.txt
+    - "{{ remote_image_name }}.xz"
+
+- name: import gpg key
+  command: gpg --import /etc/pki/rpm-gpg/RPM-GPG-KEY-CentOS-7
+
+- name: import verify sha256sum
+  command: gpg --verify /tmp/sha256sum.txt.asc
+
+- name: extract the downloaded image
+  command: "xz -d {{ download_dir }}/{{ remote_image_name }}.xz"
+
+- name: check if image exists
+  command: sha256sum -c sha256sum.txt.asc 2>&1 | grep OK
+  register: images_sha256sum
+
+- name: fail if given image does not exist
+  fail:
+    msg: given image {{ remote_image_name }} does not exist
+  when: 'remote_image_name not in images_sha256sum'
+
+- name: image info
+  command: qemu-img info CentOS-7-x86_64-GenericCloud-1901.qcow2
+  register: image_info
+
+- debug: msg="given image information {{ image_info }}"
+
+- name: copy the given image
+  copy:
+    src: "{{ download_dir }}/{{ remote_image_name }}"
+    dest: /var/lib/libvirt/images/tst/tst.qcow2
+
+- name: resize the disk to 20 GB
+  command: cd /var/lib/libvirt/images/tst && qemu-img resize tst.qcow2 20G
+
+- name: image info
+  yum:
+    name: cloud-utils
+    state: latest
+
+- name: clould-init
+  template:
+    src: config.yaml.j2
+    dest: "{{ download_dir }}/config.yaml"
+
+- name: load cloud init as iso
+  command: cloud-localds config.iso config.yaml
+
+- name: create a test vm
+  command: "
+    virt-install \
+      --memory 2048 \
+      --vcpus 2 \
+      --name test \
+      --disk /var/lib/libvirt/images/tst/tst.qcow2,device=disk \
+      --disk /var/lib/libvirt/images/tst/config.iso,device=cdrom \
+      --os-type Linux \
+      --os-variant centos7.0 \
+      --virt-type kvm \
+      --graphics none \
+      --network default \
+      --import"

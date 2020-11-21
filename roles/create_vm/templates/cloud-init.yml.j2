@@ -1,0 +1,10 @@
+# Ansible managed
+#cloud-config
+package_upgrade: true
+users:
+  - name: user1
+    groups: wheel
+    lock_passwd: false
+    passwd: {{ password_hash }}
+    shell: /bin/bash
+    sudo: ['ALL=(ALL) NOPASSWD:ALL']
